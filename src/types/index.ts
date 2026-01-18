@@ -91,9 +91,10 @@ export interface DocumentationSection {
 
 export interface AutomationSettings {
   enabled: boolean;
-  emailProvider: 'gmail' | 'outlook'; 
+  emailProvider?: 'gmail' | 'outlook'; 
   adminEmail: string;
-  lastRunDate: string | null;
+  lastRunDate?: string | null;
+  dailyReportTime?: string;
   emailJsServiceId?: string;
   emailJsTemplateId?: string;
   emailJsPublicKey?: string;
@@ -115,5 +116,5 @@ export interface AuditLogEntry {
   action: string;
   details: string;
   user: string;
-  module: 'Configuración' | 'Reportes' | 'Proyectos' | 'Sistema';
+  module: 'Configuración' | 'Reportes' | 'Proyectos' | 'Sistema' | 'Automatización';
 }

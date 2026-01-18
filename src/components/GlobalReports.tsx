@@ -251,7 +251,7 @@ const GlobalReports: React.FC<GlobalReportsProps> = ({ projects, tasks, users })
             
             <button 
                 onClick={handleSavePDF}
-                className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
             >
                 <FileDown className="w-4 h-4" />
                 <span>Guardar PDF</span>
@@ -259,8 +259,8 @@ const GlobalReports: React.FC<GlobalReportsProps> = ({ projects, tasks, users })
 
             <button 
                 onClick={handlePrint}
-                className="flex items-center space-x-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors shadow-sm"
-                title="Imprimir directamente"
+                className="flex items-center space-x-2 bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                title="Imprimir"
             >
                 <Printer className="w-4 h-4" />
                 <span>Imprimir</span>
