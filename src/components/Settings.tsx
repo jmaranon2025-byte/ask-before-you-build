@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TeamManagement from './TeamManagement';
-import { User, Project, Task } from '@/types';
-import { Layers, ListChecks, Users as UsersIcon, Settings as SettingsIcon, Plus, Trash2, Save, Image as ImageIcon, Upload, Database, Download, FileText, Shield, AlertOctagon } from 'lucide-react';
+import { User, Project, Task, AutomationSettings } from '@/types';
+import { 
+  Layers, ListChecks, Users as UsersIcon, Settings as SettingsIcon, 
+  Plus, Trash2, Image as ImageIcon, Upload, Database, Download, 
+  FileText, Shield, Building2, Briefcase, UserCog, ClipboardList, 
+  Workflow, Clock, Mail, Send, ChevronRight
+} from 'lucide-react';
 import { getAuditLogs, clearAuditLogs, logSystemAction } from '@/services/auditService';
 
 interface SettingsProps {
@@ -38,18 +43,72 @@ interface SettingsProps {
     setTasks: (t: Task[]) => void;
 }
 
-type SettingsTab = 'team' | 'phases' | 'statuses' | 'branding' | 'data' | 'audit';
+type SettingsTab = 'empresa' | 'areas' | 'roles' | 'equipo' | 'reportes' | 'fases' | 'estados' | 'plantilla';
 
 const Settings: React.FC<SettingsProps> = (props) => {
-    const [activeTab, setActiveTab] = useState<SettingsTab>('team');
+    const [activeTab, setActiveTab] = useState<SettingsTab>('empresa');
+    const [automationSettings, setAutomationSettings] = useState<AutomationSettings>({
+        enabled: false,
+        dailyReportTime: '07:00',
+        emailJsServiceId: '',
+        emailJsTemplateId: '',
+        emailJsPublicKey: '',
+        adminEmail: ''
+    });
 
-    const tabs = [
-        { id: 'team', label: 'Equipo', icon: UsersIcon },
-        { id: 'phases', label: 'Fases', icon: Layers },
-        { id: 'statuses', label: 'Estados', icon: ListChecks },
-        { id: 'branding', label: 'Marca', icon: ImageIcon },
-        { id: 'data', label: 'Datos', icon: Database },
-        { id: 'audit', label: 'Auditoría', icon: Shield },
+    useEffect(() => {
+        const saved = localStorage.getItem('helios_automation');
+        if (saved) {
+            setAutomationSettings(JSON.parse(saved));
+        }
+    }, []);
+
+    const saveAutomationSettings = (newSettings: AutomationSettings) => {
+        setAutomationSettings(newSettings);
+        localStorage.setItem('helios_automation', JSON.stringify(newSettings));
+        logSystemAction('Configurar Automatización', 'Ajustes guardados', 'Configuración');
+    };
+
+    const sendTestEmail = async () => {
+        if (!automationSettings.emailJsPublicKey || !automationSettings.emailJsServiceId || !automationSettings.emailJsTemplateId) {
+            alert('Configura todos los campos de EmailJS primero.');
+            return;
+        }
+
+        try {
+            if ((window as any).emailjs) {
+                (window as any).emailjs.init(automationSettings.emailJsPublicKey);
+                await (window as any).emailjs.send(
+                    automationSettings.emailJsServiceId,
+                    automationSettings.emailJsTemplateId,
+                    {
+                        to_email: automationSettings.adminEmail || 'test@example.com',
+                        to_name: 'Administrador',
+                        subject: 'Email de Prueba - RyV',
+                        message: 'Este es un email de prueba del sistema RyV Instalaciones Eléctricas.',
+                        task_count: 0
+                    }
+                );
+                alert('Email de prueba enviado correctamente.');
+                logSystemAction('Email de Prueba', 'Enviado correctamente', 'Automatización');
+            } else {
+                alert('EmailJS no está cargado. Agrega el script de EmailJS en tu HTML.');
+            }
+        } catch (error) {
+            console.error('Error enviando email:', error);
+            alert('Error al enviar email de prueba.');
+        }
+    };
+
+    const menuItems = [
+        { id: 'empresa', label: 'Empresa', sublabel: 'Logo e identidad', icon: Building2 },
+        { id: 'areas', label: 'Áreas/Dptos', sublabel: 'Estructura organizativa', icon: Briefcase },
+        { id: 'roles', label: 'Roles', sublabel: 'Perfiles de usuario', icon: UserCog },
+        { id: 'equipo', label: 'Equipo', sublabel: 'Usuarios y códigos', icon: UsersIcon },
+        { id: 'reportes', label: 'Reportes', sublabel: 'Destinatarios predeterminados', icon: ClipboardList },
+        { id: 'fases', label: 'Fases', sublabel: 'Etapas de proyecto', icon: Layers },
+        { id: 'estados', label: 'Estados', sublabel: 'Flujos de trabajo', icon: ListChecks },
+        { id: 'plantilla', label: 'Plantilla', sublabel: 'Tareas por defecto', icon: FileText },
     ];
 
     const ListEditor = ({ title, items, onSave }: { title: string; items: string[]; onSave: (items: string[]) => void }) => {
@@ -168,7 +227,7 @@ const Settings: React.FC<SettingsProps> = (props) => {
         };
 
         return (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 max-w-2xl">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Identidad Corporativa</h3>
                 <div className="flex items-start space-x-6">
                     <div className="w-32 h-32 bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
@@ -195,6 +254,102 @@ const Settings: React.FC<SettingsProps> = (props) => {
                                 </button>
                             )}
                         </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const AutomationEditor = () => {
+        return (
+            <div className="space-y-6">
+                {/* Rutina Matutina */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                    <div className="flex items-start space-x-4">
+                        <div className="p-3 bg-blue-100 rounded-lg">
+                            <Clock className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                            <h4 className="text-lg font-bold text-slate-800">Rutina Matutina Automática (7:00 AM)</h4>
+                            <p className="text-sm text-slate-600 mt-1">
+                                El sistema revisará automáticamente todas las tareas pendientes cada mañana.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Configuración de Envío */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <h4 className="text-lg font-bold text-slate-800">Configuración de Envío</h4>
+                        <label className="flex items-center cursor-pointer space-x-2">
+                            <div className="relative">
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only" 
+                                    checked={automationSettings.enabled} 
+                                    onChange={() => saveAutomationSettings({...automationSettings, enabled: !automationSettings.enabled})}
+                                />
+                                <div className={`block w-12 h-7 rounded-full transition-colors ${automationSettings.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                                <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${automationSettings.enabled ? 'transform translate-x-5' : ''}`}></div>
+                            </div>
+                            <span className="text-sm font-medium text-slate-700">Activado</span>
+                        </label>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Correo del Administrador</label>
+                            <input 
+                                type="email"
+                                value={automationSettings.adminEmail}
+                                onChange={(e) => saveAutomationSettings({...automationSettings, adminEmail: e.target.value})}
+                                placeholder="admin@empresa.com"
+                                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Service ID</label>
+                                <input 
+                                    type="text"
+                                    value={automationSettings.emailJsServiceId}
+                                    onChange={(e) => saveAutomationSettings({...automationSettings, emailJsServiceId: e.target.value})}
+                                    placeholder="service_xxxxxx"
+                                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Template ID</label>
+                                <input 
+                                    type="text"
+                                    value={automationSettings.emailJsTemplateId}
+                                    onChange={(e) => saveAutomationSettings({...automationSettings, emailJsTemplateId: e.target.value})}
+                                    placeholder="template_xxxxxx"
+                                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Public Key (API Key)</label>
+                            <input 
+                                type="text"
+                                value={automationSettings.emailJsPublicKey}
+                                onChange={(e) => saveAutomationSettings({...automationSettings, emailJsPublicKey: e.target.value})}
+                                placeholder="zT-xxxxxxxxxx"
+                                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+
+                        <button 
+                            onClick={sendTestEmail}
+                            className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors"
+                        >
+                            <Send className="w-4 h-4" />
+                            <span>Enviar Email de Prueba Ahora</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -248,37 +403,21 @@ const Settings: React.FC<SettingsProps> = (props) => {
         );
     };
 
-    return (
-        <div className="h-full flex flex-col space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-                    <SettingsIcon className="w-6 h-6 mr-2 text-slate-600" />
-                    Configuración
-                </h1>
-                <p className="text-slate-500 text-sm">Administración del sistema y preferencias</p>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
-                {tabs.map(tab => (
-                    <button 
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as SettingsTab)}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            activeTab === tab.id 
-                            ? 'bg-slate-800 text-white shadow-md' 
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                    >
-                        <tab.icon className="w-4 h-4" />
-                        <span>{tab.label}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-auto">
-                {activeTab === 'team' && (
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'empresa':
+                return (
+                    <div className="space-y-6">
+                        <BrandingEditor />
+                        <AutomationEditor />
+                    </div>
+                );
+            case 'areas':
+                return <ListEditor title="Departamentos / Áreas" items={props.departments} onSave={props.setDepartments} />;
+            case 'roles':
+                return <ListEditor title="Roles de Usuario" items={props.roles} onSave={props.setRoles} />;
+            case 'equipo':
+                return (
                     <TeamManagement 
                         users={props.users}
                         onAddUser={props.onAddUser}
@@ -288,28 +427,65 @@ const Settings: React.FC<SettingsProps> = (props) => {
                         departments={props.departments}
                         roles={props.roles}
                     />
-                )}
-                
-                {activeTab === 'phases' && (
-                    <div className="space-y-6">
-                        <ListEditor title="Fases de Proyecto" items={props.phases} onSave={props.setPhases} />
-                        <ListEditor title="Departamentos" items={props.departments} onSave={props.setDepartments} />
-                        <ListEditor title="Roles" items={props.roles} onSave={props.setRoles} />
-                    </div>
-                )}
-                
-                {activeTab === 'statuses' && (
+                );
+            case 'reportes':
+                return <DataManagement />;
+            case 'fases':
+                return <ListEditor title="Fases de Proyecto" items={props.phases} onSave={props.setPhases} />;
+            case 'estados':
+                return (
                     <div className="space-y-6">
                         <ListEditor title="Estados de Tarea" items={props.taskStatuses} onSave={props.setTaskStatuses} />
                         <ListEditor title="Estados de Proyecto" items={props.projectStatuses} onSave={props.setProjectStatuses} />
                     </div>
-                )}
+                );
+            case 'plantilla':
+                return (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4">Plantilla de Tareas</h3>
+                        <p className="text-slate-500 text-sm">Define tareas predeterminadas para nuevos proyectos.</p>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="h-full flex flex-col md:flex-row gap-6">
+            {/* Sidebar Menu */}
+            <div className="w-full md:w-72 flex-shrink-0">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold text-slate-800">Configuración General</h1>
+                </div>
                 
-                {activeTab === 'branding' && <BrandingEditor />}
-                
-                {activeTab === 'data' && <DataManagement />}
-                
-                {activeTab === 'audit' && <AuditLogViewer />}
+                <nav className="space-y-1">
+                    {menuItems.map(item => (
+                        <button 
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id as SettingsTab)}
+                            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all ${
+                                activeTab === item.id 
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                : 'hover:bg-slate-100 text-slate-600'
+                            }`}
+                        >
+                            <div className={`p-2 rounded-lg ${activeTab === item.id ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                                <item.icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1">
+                                <div className="font-medium text-sm">{item.label}</div>
+                                <div className="text-xs text-slate-400">{item.sublabel}</div>
+                            </div>
+                            {activeTab === item.id && <ChevronRight className="w-4 h-4 text-blue-500" />}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 overflow-auto">
+                {renderContent()}
             </div>
         </div>
     );

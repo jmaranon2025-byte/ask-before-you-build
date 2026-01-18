@@ -315,8 +315,8 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
     <div className="h-full flex flex-col space-y-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Diagrama de Proyecto</h1>
-          <p className="text-slate-500 text-sm">Seguimiento de tareas y cronograma</p>
+          <h1 className="text-2xl font-bold text-slate-800">Gestión de Proyecto</h1>
+          <p className="text-slate-500 text-sm">Gestiona las tareas de tus proyectos</p>
         </div>
         <div className="flex items-center space-x-3">
           <button onClick={downloadCSV} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
@@ -332,12 +332,21 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
 
       {/* Project Selector & View Toggle */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          {projects.map(p => (
-            <button key={p.id} onClick={() => setSelectedProjectId(p.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedProjectId === p.id ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-              {p.name.length > 25 ? p.name.substring(0, 25) + '...' : p.name}
-            </button>
-          ))}
+        <div className="flex items-center gap-4">
+          <select
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500 outline-none min-w-[280px]"
+          >
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {currentProject && (
+            <p className="text-sm text-slate-500 hidden md:block">
+              Gestiona las tareas de: <span className="font-medium text-slate-700">{currentProject.name}</span>
+            </p>
+          )}
         </div>
         
         <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
