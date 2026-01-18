@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import Login from '@/components/Login';
 import Notifications from '@/components/Notifications';
 import Documentation from '@/components/Documentation';
-import { Project, Task, User, AutomationSettings } from '@/types';
-import { shouldRunDailyReport, runDailyAutomation } from '@/services/automationService';
+import Dashboard from '@/components/Dashboard';
+import ProjectGantt from '@/components/ProjectGantt';
+import EnterpriseManagement from '@/components/EnterpriseManagement';
+import GlobalReports from '@/components/GlobalReports';
+import Settings from '@/components/Settings';
+import TeamManagement from '@/components/TeamManagement';
+import { Project, Task, User, ProjectPhase, ProjectStatus, Department, Priority } from '@/types';
 import { api } from '@/services/api';
-import { Zap, ShieldCheck, Database, Server, Lock, UserCheck, LogOut, Activity, AlertTriangle, CheckCircle, Clock, Plus } from 'lucide-react';
+import { MOCK_PROJECTS, MOCK_TASKS, MOCK_USERS, PROJECT_TEMPLATE } from '@/data/mockData';
+import { Zap, LogOut } from 'lucide-react';
 
 // Boot Screen Component
 const SystemBoot: React.FC<{ onComplete: () => void; sessionUser: User | null; onLogout: () => void }> = ({ onComplete, sessionUser, onLogout }) => {
@@ -79,96 +85,59 @@ const SystemBoot: React.FC<{ onComplete: () => void; sessionUser: User | null; o
   );
 };
 
-// Simple Dashboard Component
-const SimpleDashboard: React.FC<{ projects: Project[]; tasks: Task[] }> = ({ projects, tasks }) => {
-  const activeProjects = projects.filter(p => p.status !== 'Completado' && p.status !== 'Detenido');
-  const delayedTasks = tasks.filter(t => t.status === 'En Riesgo').length;
-  const efficiency = activeProjects.length > 0 ? Math.round(activeProjects.reduce((acc, curr) => acc + (curr.progress || 0), 0) / activeProjects.length) : 0;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Panel de Control</h1>
-        <p className="text-slate-500 text-sm">Resumen general de operaciones</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Proyectos Activos</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{activeProjects.length} / {projects.length}</h3>
-            </div>
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Activity className="w-6 h-6" /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Tareas en Riesgo</p>
-              <h3 className="text-2xl font-bold text-red-600 mt-1">{delayedTasks}</h3>
-            </div>
-            <div className="p-2 bg-red-50 rounded-lg text-red-600"><AlertTriangle className="w-6 h-6" /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Eficiencia Global</p>
-              <h3 className="text-2xl font-bold text-emerald-600 mt-1">{efficiency}%</h3>
-            </div>
-            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><CheckCircle className="w-6 h-6" /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Total Tareas</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{tasks.length}</h3>
-            </div>
-            <div className="p-2 bg-slate-100 rounded-lg text-slate-600"><Clock className="w-6 h-6" /></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Proyectos</h2>
-        <div className="space-y-4">
-          {projects.map(project => (
-            <div key={project.id} className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-bold text-slate-900">{project.name}</h4>
-                  <p className="text-sm text-slate-500">{project.client} • {project.location}</p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                  project.status === 'Completado' ? 'bg-emerald-100 text-emerald-700' :
-                  project.status === 'En Progreso' ? 'bg-blue-100 text-blue-700' :
-                  'bg-yellow-100 text-yellow-700'
-                }`}>{project.status}</span>
-              </div>
-              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${
-                  project.status === 'Completado' ? 'bg-emerald-500' : 'bg-blue-500'
-                }`} style={{ width: `${project.progress}%` }}></div>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">{project.progress}% completado</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Main App
 const App: React.FC = () => {
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [bootComplete, setBootComplete] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Data State
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [companyLogo, setCompanyLogo] = useState('');
+  
+  // Config State
+  const [phases, setPhases] = useState<string[]>(Object.values(ProjectPhase));
+  const [taskStatuses, setTaskStatuses] = useState<string[]>(['Pendiente', 'En Progreso', 'En Riesgo', 'Completado', 'Cancelado']);
+  const [projectStatuses, setProjectStatuses] = useState<string[]>(Object.values(ProjectStatus));
+  const [projectTemplate, setProjectTemplate] = useState(PROJECT_TEMPLATE);
+  const [departments, setDepartments] = useState<string[]>(Object.values(Department));
+  const [roles, setRoles] = useState<string[]>([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [loadedProjects, loadedTasks, loadedUsers] = await Promise.all([
+        api.projects.list(),
+        api.tasks.list(),
+        api.users.list()
+      ]);
+      
+      setProjects(loadedProjects.length > 0 ? loadedProjects : MOCK_PROJECTS);
+      setTasks(loadedTasks.length > 0 ? loadedTasks : MOCK_TASKS);
+      setUsers(loadedUsers.length > 0 ? loadedUsers : MOCK_USERS);
+      
+      const [loadedPhases, loadedTaskStatuses, loadedProjectStatuses, loadedTemplate, loadedLogo, loadedDepts, loadedRoles] = await Promise.all([
+        api.config.getPhases(),
+        api.config.getTaskStatuses(),
+        api.config.getProjectStatuses(),
+        api.config.getTemplate(),
+        api.config.getLogo(),
+        api.config.getDepartments(),
+        api.config.getRoles()
+      ]);
+      
+      setPhases(loadedPhases);
+      setTaskStatuses(loadedTaskStatuses);
+      setProjectStatuses(loadedProjectStatuses);
+      setProjectTemplate(loadedTemplate);
+      setCompanyLogo(loadedLogo);
+      setDepartments(loadedDepts);
+      setRoles(loadedRoles);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  }, []);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -180,24 +149,117 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (sessionUser && bootComplete) {
-      const loadData = async () => {
-        const [p, t, logo] = await Promise.all([
-          api.projects.list(),
-          api.tasks.list(),
-          api.config.getLogo()
-        ]);
-        setProjects(p);
-        setTasks(t);
-        setCompanyLogo(logo);
-      };
       loadData();
     }
-  }, [sessionUser, bootComplete]);
+  }, [sessionUser, bootComplete, loadData]);
 
   const handleLogout = async () => {
     await api.auth.logout();
     setSessionUser(null);
     if (bootComplete) window.location.reload();
+  };
+
+  // Project handlers
+  const handleAddProject = async (project: Project, generatedTasks: Task[]) => {
+    await api.projects.create(project);
+    for (const task of generatedTasks) {
+      await api.tasks.create(task);
+    }
+    setProjects(prev => [...prev, project]);
+    setTasks(prev => [...prev, ...generatedTasks]);
+    await api.audit.log('Crear', `Proyecto: ${project.name}`, 'Proyectos', sessionUser?.name || 'Sistema');
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    await api.projects.delete(projectId);
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    setTasks(prev => prev.filter(t => t.projectId !== projectId));
+    if (project) {
+      await api.audit.log('Eliminar', `Proyecto: ${project.name}`, 'Proyectos', sessionUser?.name || 'Sistema');
+    }
+  };
+
+  // Task handlers
+  const handleAddTask = async (task: Task) => {
+    await api.tasks.create(task);
+    setTasks(prev => [...prev, task]);
+  };
+
+  const handleUpdateTask = async (task: Task) => {
+    await api.tasks.update(task);
+    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    await api.tasks.delete(taskId);
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  // User handlers
+  const handleAddUser = async (user: User) => {
+    await api.users.create(user);
+    setUsers(prev => [...prev, user]);
+    await api.audit.log('Crear', `Usuario: ${user.name}`, 'Configuración', sessionUser?.name || 'Sistema');
+  };
+
+  const handleUpdateUser = async (user: User) => {
+    await api.users.update(user);
+    setUsers(prev => prev.map(u => u.id === user.id ? user : u));
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    await api.users.delete(userId);
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    if (user) {
+      await api.audit.log('Eliminar', `Usuario: ${user.name}`, 'Configuración', sessionUser?.name || 'Sistema');
+    }
+  };
+
+  // Config handlers
+  const handleSaveConfig = async (config: {
+    phases?: string[];
+    taskStatuses?: string[];
+    projectStatuses?: string[];
+    template?: typeof PROJECT_TEMPLATE;
+    logo?: string;
+    departments?: string[];
+    roles?: string[];
+  }) => {
+    if (config.phases) {
+      await api.config.savePhases(config.phases);
+      setPhases(config.phases);
+    }
+    if (config.taskStatuses) {
+      await api.config.saveTaskStatuses(config.taskStatuses);
+      setTaskStatuses(config.taskStatuses);
+    }
+    if (config.projectStatuses) {
+      await api.config.saveProjectStatuses(config.projectStatuses);
+      setProjectStatuses(config.projectStatuses);
+    }
+    if (config.template) {
+      await api.config.saveTemplate(config.template);
+      setProjectTemplate(config.template);
+    }
+    if (config.logo !== undefined) {
+      await api.config.saveLogo(config.logo);
+      setCompanyLogo(config.logo);
+    }
+    if (config.departments) {
+      await api.config.saveDepartments(config.departments);
+      setDepartments(config.departments);
+    }
+    if (config.roles) {
+      await api.config.saveRoles(config.roles);
+      setRoles(config.roles);
+    }
+    await api.audit.log('Actualizar', 'Configuración del sistema', 'Configuración', sessionUser?.name || 'Sistema');
+  };
+
+  const handleResetData = async () => {
+    await api.projects.reset();
   };
 
   if (!bootComplete) {
@@ -210,10 +272,120 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <SimpleDashboard projects={projects} tasks={tasks} />;
-      case 'notifications': return <Notifications projects={projects} tasks={tasks} />;
-      case 'docs': return <Documentation />;
-      default: return <SimpleDashboard projects={projects} tasks={tasks} />;
+      case 'dashboard':
+        return (
+          <Dashboard
+            projects={projects}
+            tasks={tasks}
+            users={users}
+            onAddProject={handleAddProject}
+            onDeleteProject={handleDeleteProject}
+            projectStatuses={projectStatuses}
+            projectTemplate={projectTemplate}
+          />
+        );
+      
+      case 'projects':
+        return (
+          <ProjectGantt
+            projects={projects}
+            tasks={tasks}
+            users={users}
+            onAddTask={handleAddTask}
+            onUpdateTask={handleUpdateTask}
+            onDeleteTask={handleDeleteTask}
+            phases={phases}
+            taskStatuses={taskStatuses}
+          />
+        );
+      
+      case 'enterprise':
+        return (
+          <EnterpriseManagement
+            tasks={tasks}
+            users={users}
+            departments={departments}
+            taskStatuses={taskStatuses}
+            onAddTask={handleAddTask}
+            onUpdateTask={handleUpdateTask}
+            onDeleteTask={handleDeleteTask}
+          />
+        );
+      
+      case 'reports':
+        return (
+          <GlobalReports
+            projects={projects}
+            tasks={tasks}
+            users={users}
+          />
+        );
+      
+      case 'team':
+        return (
+          <TeamManagement
+            users={users}
+            onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+            onResetData={handleResetData}
+            departments={departments}
+            roles={roles}
+          />
+        );
+      
+      case 'docs':
+        return <Documentation />;
+      
+      case 'notifications':
+        return (
+          <Notifications
+            projects={projects}
+            tasks={tasks}
+          />
+        );
+      
+      case 'settings':
+        return (
+          <Settings
+            users={users}
+            onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+            onResetData={handleResetData}
+            phases={phases}
+            setPhases={(p) => handleSaveConfig({ phases: p })}
+            taskStatuses={taskStatuses}
+            setTaskStatuses={(s) => handleSaveConfig({ taskStatuses: s })}
+            projectStatuses={projectStatuses}
+            setProjectStatuses={(s) => handleSaveConfig({ projectStatuses: s })}
+            projectTemplate={projectTemplate}
+            setProjectTemplate={(t) => handleSaveConfig({ template: t })}
+            companyLogo={companyLogo}
+            setCompanyLogo={(l) => handleSaveConfig({ logo: l })}
+            departments={departments}
+            setDepartments={(d) => handleSaveConfig({ departments: d })}
+            roles={roles}
+            setRoles={(r) => handleSaveConfig({ roles: r })}
+            projects={projects}
+            tasks={tasks}
+            setProjects={setProjects}
+            setTasks={setTasks}
+          />
+        );
+      
+      default:
+        return (
+          <Dashboard
+            projects={projects}
+            tasks={tasks}
+            users={users}
+            onAddProject={handleAddProject}
+            onDeleteProject={handleDeleteProject}
+            projectStatuses={projectStatuses}
+            projectTemplate={projectTemplate}
+          />
+        );
     }
   };
 
