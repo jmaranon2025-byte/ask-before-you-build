@@ -43,7 +43,7 @@ interface SettingsProps {
     setTasks: (t: Task[]) => void;
 }
 
-type SettingsTab = 'empresa' | 'areas' | 'roles' | 'equipo' | 'reportes' | 'fases' | 'estados' | 'plantilla';
+type SettingsTab = 'empresa' | 'areas' | 'roles' | 'equipo' | 'reportes' | 'fases' | 'estados' | 'plantilla' | 'automatizacion' | 'auditoria' | 'database';
 
 const Settings: React.FC<SettingsProps> = (props) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('empresa');
@@ -101,14 +101,17 @@ const Settings: React.FC<SettingsProps> = (props) => {
     };
 
     const menuItems = [
-        { id: 'empresa', label: 'Empresa', sublabel: 'Logo e identidad', icon: Building2 },
+        { id: 'empresa', label: 'Empresa', sublabel: 'Identidad Corporativa', icon: Building2 },
         { id: 'areas', label: 'Áreas/Dptos', sublabel: 'Estructura organizativa', icon: Briefcase },
         { id: 'roles', label: 'Roles', sublabel: 'Perfiles de usuario', icon: UserCog },
         { id: 'equipo', label: 'Equipo', sublabel: 'Usuarios y códigos', icon: UsersIcon },
         { id: 'reportes', label: 'Reportes', sublabel: 'Destinatarios predeterminados', icon: ClipboardList },
         { id: 'fases', label: 'Fases', sublabel: 'Etapas de proyecto', icon: Layers },
-        { id: 'estados', label: 'Estados', sublabel: 'Flujos de trabajo', icon: ListChecks },
+        { id: 'estados', label: 'Estados', sublabel: 'Flujos de trabajo', icon: Workflow },
         { id: 'plantilla', label: 'Plantilla', sublabel: 'Tareas por defecto', icon: FileText },
+        { id: 'automatizacion', label: 'Automatización', sublabel: 'Correos y alertas', icon: Mail },
+        { id: 'auditoria', label: 'Auditoría', sublabel: 'Registro de operaciones', icon: Shield },
+        { id: 'database', label: 'Base de Datos', sublabel: 'Importar/Exportar', icon: Database },
     ];
 
     const ListEditor = ({ title, items, onSave }: { title: string; items: string[]; onSave: (items: string[]) => void }) => {
@@ -406,12 +409,7 @@ const Settings: React.FC<SettingsProps> = (props) => {
     const renderContent = () => {
         switch (activeTab) {
             case 'empresa':
-                return (
-                    <div className="space-y-6">
-                        <BrandingEditor />
-                        <AutomationEditor />
-                    </div>
-                );
+                return <BrandingEditor />;
             case 'areas':
                 return <ListEditor title="Departamentos / Áreas" items={props.departments} onSave={props.setDepartments} />;
             case 'roles':
@@ -429,7 +427,12 @@ const Settings: React.FC<SettingsProps> = (props) => {
                     />
                 );
             case 'reportes':
-                return <DataManagement />;
+                return (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4">Destinatarios Predeterminados</h3>
+                        <p className="text-slate-500 text-sm">Configura los destinatarios predeterminados para reportes automáticos.</p>
+                    </div>
+                );
             case 'fases':
                 return <ListEditor title="Fases de Proyecto" items={props.phases} onSave={props.setPhases} />;
             case 'estados':
@@ -446,6 +449,12 @@ const Settings: React.FC<SettingsProps> = (props) => {
                         <p className="text-slate-500 text-sm">Define tareas predeterminadas para nuevos proyectos.</p>
                     </div>
                 );
+            case 'automatizacion':
+                return <AutomationEditor />;
+            case 'auditoria':
+                return <AuditLogViewer />;
+            case 'database':
+                return <DataManagement />;
             default:
                 return null;
         }

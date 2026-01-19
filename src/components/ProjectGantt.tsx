@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, GanttChartSquare, Users } from 'lucide-react';
 import { Task, Project, Priority, User } from '@/types';
 
 interface ProjectGanttProps {
@@ -13,9 +13,9 @@ interface ProjectGanttProps {
   taskStatuses: string[];
 }
 
-type ViewMode = 'list' | 'board' | 'calendar';
+type ViewMode = 'list' | 'board' | 'calendar' | 'gantt' | 'team';
 
-const ProjectGantt: React.FC<ProjectGanttProps> = ({ 
+const ProjectGantt: React.FC<ProjectGanttProps> = ({
     projects, tasks, users, 
     onAddTask, onUpdateTask, onDeleteTask,
     phases, taskStatuses
@@ -57,6 +57,18 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
 
   const currentProject = projects.find(p => p.id === selectedProjectId);
   const projectTasks = tasks.filter(t => t.projectId === selectedProjectId);
+
+  // Group tasks by phase
+  const tasksByPhase = useMemo(() => {
+    const grouped: Record<string, Task[]> = {};
+    phases.forEach(phase => {
+      const phaseTasks = projectTasks.filter(t => t.phase === phase);
+      if (phaseTasks.length > 0) {
+        grouped[phase] = phaseTasks;
+      }
+    });
+    return grouped;
+  }, [projectTasks, phases]);
 
   const getAssigneeName = (userId: string) => users.find(u => u.id === userId)?.name || 'Sin asignar';
 
@@ -139,14 +151,19 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
     setIsTaskModalOpen(false);
   };
 
-  const downloadCSV = () => {
+  const downloadExcel = () => {
     if (!currentProject) return;
-    const headers = ['ID', 'Tarea', 'Fase', 'Prioridad', 'Asignado', 'Estado'];
-    const rows = projectTasks.map(t => [t.id, t.name, t.phase, t.priority, getAssigneeName(t.assignedTo), t.status]);
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const link = document.createElement("a");
-    link.href = encodeURI(csvContent);
-    link.download = `tareas-${currentProject.name.replace(/\s+/g, '-')}.csv`;
+    const headers = ['Fase', 'Tarea', 'Prioridad', 'Responsable', 'Fecha Inicio', 'Duración', 'Estado'];
+    const rows = projectTasks.map(t => [t.phase, t.name, t.priority, getAssigneeName(t.assignedTo), t.startDate, t.duration + 'd', t.status]);
+    
+    // Create CSV with BOM for Excel compatibility
+    const BOM = '\uFEFF';
+    const csvContent = BOM + headers.join('\t') + '\n' + rows.map(e => e.join('\t')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `tareas-${currentProject.name.replace(/\s+/g, '-')}.xls`;
     link.click();
   };
 
@@ -160,69 +177,90 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
 
   const renderListView = () => (
     <div className="overflow-auto flex-1 pb-32">
-      <table className="w-full text-left border-collapse">
-        <thead className="bg-slate-50 sticky top-0 z-10 text-xs uppercase text-slate-500 font-semibold shadow-sm">
-          <tr>
-            <th className="p-4 border-b border-slate-200 w-1/3">Tarea</th>
-            <th className="p-4 border-b border-slate-200">Fase</th>
-            <th className="p-4 border-b border-slate-200">Responsable</th>
-            <th className="p-4 border-b border-slate-200">Cronograma</th>
-            <th className="p-4 border-b border-slate-200 text-center">Estado</th>
-            <th className="p-4 border-b border-slate-200 text-right w-16"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-sm">
-          {projectTasks.length > 0 ? projectTasks.map((task) => (
-            <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
-              <td className="p-4">
-                <div className="font-medium text-slate-700">{task.name}</div>
-              </td>
-              <td className="p-4">
-                <span className="text-xs px-2 py-0.5 bg-slate-100 rounded">{task.phase}</span>
-              </td>
-              <td className="p-4">
-                <div className="flex items-center space-x-2">
-                  <UserCircle className="w-5 h-5 text-slate-300" />
-                  <span className="text-slate-700 text-xs">{getAssigneeName(task.assignedTo)}</span>
-                </div>
-              </td>
-              <td className="p-4">
-                <div className="w-full max-w-xs">
-                  <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>{task.startDate}</span>
-                    <span>{task.duration}d</span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${task.status === 'Completado' ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${task.progress}%` }}></div>
-                  </div>
-                </div>
-              </td>
-              <td className="p-4 text-center">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getStatusColorClass(task.status)}`}>
-                  {task.status}
-                </span>
-              </td>
-              <td className="p-4 text-right relative">
-                <button onClick={(e) => handleMenuClick(e, task.id)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-                {activeMenuId === task.id && (
-                  <div className="absolute right-8 top-8 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 py-1 text-left">
-                    <button onClick={() => openEditTaskModal(task)} className="w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center">
-                      <Edit className="w-3.5 h-3.5 mr-2 text-blue-500" /> Editar
-                    </button>
-                    <button onClick={(e) => handleDeleteClick(e, task)} className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
-                      <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
-                    </button>
-                  </div>
-                )}
-              </td>
-            </tr>
-          )) : (
-            <tr><td colSpan={6} className="p-8 text-center text-slate-400">Sin tareas registradas.</td></tr>
-          )}
-        </tbody>
-      </table>
+      {Object.keys(tasksByPhase).length > 0 ? (
+        <div className="divide-y divide-slate-200">
+          {Object.entries(tasksByPhase).map(([phase, phaseTasks], phaseIndex) => (
+            <div key={phase}>
+              {/* Phase Header */}
+              <div className="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm uppercase tracking-wide sticky top-0 z-10 border-b border-slate-200">
+                {phaseIndex + 1}. {phase}
+              </div>
+              {/* Phase Tasks */}
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-semibold">
+                  <tr>
+                    <th className="p-4 border-b border-slate-200 w-1/3">Tarea</th>
+                    <th className="p-4 border-b border-slate-200">Prioridad</th>
+                    <th className="p-4 border-b border-slate-200">Responsable</th>
+                    <th className="p-4 border-b border-slate-200">Cronograma</th>
+                    <th className="p-4 border-b border-slate-200 text-center">Estado</th>
+                    <th className="p-4 border-b border-slate-200 text-right w-16"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {phaseTasks.map((task) => (
+                    <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="p-4">
+                        <div className="font-medium text-slate-700">{task.name}</div>
+                        {task.dependencies && task.dependencies.length > 0 && (
+                          <div className="text-xs text-slate-400 mt-0.5">Dep: {task.dependencies.length}</div>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
+                          task.priority === Priority.CRITICA ? 'bg-red-50 text-red-700 border-red-100' :
+                          task.priority === Priority.ALTA ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                          task.priority === Priority.MEDIA ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                          'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}>{task.priority}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          <UserCircle className="w-5 h-5 text-slate-300" />
+                          <span className="text-slate-700 text-xs">{getAssigneeName(task.assignedTo)}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="w-full max-w-xs">
+                          <div className="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>{task.startDate}</span>
+                            <span>{task.duration}d</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${task.status === 'Completado' ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${task.progress}%` }}></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getStatusColorClass(task.status)}`}>
+                          {task.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right relative">
+                        <button onClick={(e) => handleMenuClick(e, task.id)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {activeMenuId === task.id && (
+                          <div className="absolute right-8 top-8 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 py-1 text-left">
+                            <button onClick={() => openEditTaskModal(task)} className="w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center">
+                              <Edit className="w-3.5 h-3.5 mr-2 text-blue-500" /> Editar
+                            </button>
+                            <button onClick={(e) => handleDeleteClick(e, task)} className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
+                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-8 text-center text-slate-400">Sin tareas registradas.</div>
+      )}
     </div>
   );
 
@@ -319,9 +357,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
           <p className="text-slate-500 text-sm">Gestiona las tareas de tus proyectos</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button onClick={downloadCSV} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+          <button onClick={downloadExcel} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
             <Download className="w-4 h-4" />
-            <span>CSV</span>
+            <span>Excel</span>
           </button>
           <button onClick={openNewTaskModal} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors">
             <Plus className="w-5 h-5" />
@@ -352,7 +390,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
         <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
           <button onClick={() => setViewMode('list')} className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`} title="Vista Lista"><List className="w-4 h-4" /></button>
           <button onClick={() => setViewMode('board')} className={`p-2 rounded ${viewMode === 'board' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`} title="Vista Tablero"><LayoutGrid className="w-4 h-4" /></button>
+          <button onClick={() => setViewMode('gantt')} className={`p-2 rounded ${viewMode === 'gantt' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`} title="Vista Gantt"><GanttChartSquare className="w-4 h-4" /></button>
           <button onClick={() => setViewMode('calendar')} className={`p-2 rounded ${viewMode === 'calendar' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`} title="Vista Calendario"><CalendarIcon className="w-4 h-4" /></button>
+          <button onClick={() => setViewMode('team')} className={`p-2 rounded ${viewMode === 'team' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`} title="Vista Equipo"><Users className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -365,6 +405,24 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
             {viewMode === 'list' && renderListView()}
             {viewMode === 'board' && renderBoardView()}
             {viewMode === 'calendar' && renderCalendarView()}
+            {viewMode === 'gantt' && (
+              <div className="flex-1 flex items-center justify-center text-slate-400 p-8">
+                <div className="text-center">
+                  <GanttChartSquare className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                  <p className="font-medium text-slate-600">Vista Gantt</p>
+                  <p className="text-sm">Próximamente - Visualización de cronograma interactivo</p>
+                </div>
+              </div>
+            )}
+            {viewMode === 'team' && (
+              <div className="flex-1 flex items-center justify-center text-slate-400 p-8">
+                <div className="text-center">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                  <p className="font-medium text-slate-600">Vista Equipo</p>
+                  <p className="text-sm">Próximamente - Distribución de tareas por miembro</p>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
