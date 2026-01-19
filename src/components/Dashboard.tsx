@@ -35,8 +35,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     name: '',
     client: '',
     location: '',
-    budget: 0,
-    capacityKW: 0,
+    budget: undefined,
+    capacityKW: undefined,
     startDate: new Date().toISOString().split('T')[0]
   });
 
@@ -208,8 +208,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         name: '',
         client: '',
         location: '',
-        budget: 0,
-        capacityKW: 0,
+        budget: undefined,
+        capacityKW: undefined,
         startDate: new Date().toISOString().split('T')[0]
     });
     setUseTemplate(true);
@@ -252,7 +252,40 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Potencia Instalada</p>
+              <div className="flex items-end space-x-1 mt-1">
+                <h3 className="text-2xl font-bold text-indigo-600">
+                  {projects.reduce((acc, p) => acc + (p.capacityKW || 0), 0).toLocaleString()}
+                </h3>
+                <span className="text-sm text-slate-500 mb-0.5">kW</span>
+              </div>
+            </div>
+            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+              <Activity className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Presupuesto Total</p>
+              <div className="flex items-end space-x-1 mt-1">
+                <h3 className="text-2xl font-bold text-emerald-600">
+                  ${projects.reduce((acc, p) => acc + (p.budget || 0), 0).toLocaleString()}
+                </h3>
+              </div>
+            </div>
+            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+              <CheckCircle className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">Tareas en Riesgo</p>
@@ -262,33 +295,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               <AlertTriangle className="w-6 h-6" />
             </div>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <div className="flex justify-between items-start">
-                <div>
-                <p className="text-sm font-medium text-slate-500">Eficiencia Global</p>
-                <div className="flex items-end space-x-2 mt-1">
-                    <h3 className="text-2xl font-bold text-emerald-600">{efficiency}%</h3>
-                    <span className="text-xs text-slate-400 mb-1">Avance Promedio</span>
-                </div>
-                </div>
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                <CheckCircle className="w-6 h-6" />
-                </div>
-            </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-             <div className="flex justify-between items-start">
-                <div>
-                <p className="text-sm font-medium text-slate-500">Críticas</p>
-                <h3 className="text-2xl font-bold text-orange-600 mt-1">{criticalTasks}</h3>
-                </div>
-                <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
-                <Clock className="w-6 h-6" />
-                </div>
-            </div>
         </div>
       </div>
 
@@ -421,7 +427,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <label className="block text-sm font-medium text-slate-700 mb-1">Ubicación</label>
                   <input 
                     type="text"
-                    placeholder="Ciudad, Provincia"
+                    placeholder="Municipio, Provincia"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                     value={newProject.location}
                     onChange={e => setNewProject({...newProject, location: e.target.value})}
@@ -433,19 +439,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Presupuesto (USD)</label>
                   <input 
-                    type="number" min="0"
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                    value={newProject.budget}
-                    onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})}
+                    value={newProject.budget ?? ''}
+                    onChange={e => setNewProject({...newProject, budget: e.target.value ? Number(e.target.value) : undefined})}
+                    onFocus={e => { if (e.target.value === '0') e.target.value = ''; }}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Capacidad (kW)</label>
                   <input 
-                    type="number" min="0"
+                    type="number" 
+                    min="0"
+                    step="0.1"
+                    placeholder="0.0"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                    value={newProject.capacityKW}
-                    onChange={e => setNewProject({...newProject, capacityKW: Number(e.target.value)})}
+                    value={newProject.capacityKW ?? ''}
+                    onChange={e => setNewProject({...newProject, capacityKW: e.target.value ? Number(e.target.value) : undefined})}
+                    onFocus={e => { if (e.target.value === '0') e.target.value = ''; }}
                   />
                 </div>
               </div>

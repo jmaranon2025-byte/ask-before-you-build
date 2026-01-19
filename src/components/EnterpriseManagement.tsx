@@ -30,7 +30,9 @@ const EnterpriseManagement: React.FC<EnterpriseManagementProps> = ({
 
   useEffect(() => {
       if ((!selectedDept || !departments.includes(selectedDept)) && departments.length > 0) {
-          setSelectedDept(departments[0]);
+          // Default to "Dirección" if exists, otherwise first department
+          const defaultDept = departments.includes('Dirección') ? 'Dirección' : departments[0];
+          setSelectedDept(defaultDept);
       }
   }, [departments, selectedDept]);
 
@@ -88,9 +90,11 @@ const EnterpriseManagement: React.FC<EnterpriseManagementProps> = ({
 
   const openNewTaskModal = () => {
       setEditingTask(null);
+      // Default to "Dirección" department if exists
+      const defaultDept = departments.includes('Dirección') ? 'Dirección' : (selectedDept || departments[0]);
       setTaskForm({
           name: '',
-          department: selectedDept,
+          department: defaultDept,
           assignedTo: users[0]?.id || '',
           startDate: new Date().toISOString().split('T')[0],
           duration: 1,
@@ -421,20 +425,19 @@ const EnterpriseManagement: React.FC<EnterpriseManagementProps> = ({
 
       {/* Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
-              {departments.map(dept => (
-                  <button 
-                      key={dept}
-                      onClick={() => setSelectedDept(dept)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedDept === dept 
-                          ? 'bg-indigo-600 text-white shadow-md' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                  >
-                      {dept}
-                  </button>
-              ))}
+          <div className="flex items-center gap-4">
+              <select
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-indigo-500 outline-none min-w-[200px]"
+              >
+                  {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                  ))}
+              </select>
+              <p className="text-sm text-slate-500 hidden md:block">
+                  Administración de tareas por departamentos
+              </p>
           </div>
           
           <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
