@@ -14,7 +14,323 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      departments: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          access_code: string
+          avatar: string | null
+          created_at: string | null
+          department_id: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_code: string
+          avatar?: string | null
+          created_at?: string | null
+          department_id?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_code?: string
+          avatar?: string | null
+          created_at?: string | null
+          department_id?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_phases: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          budget: number | null
+          capacity_kw: number | null
+          client: string
+          created_at: string | null
+          id: string
+          location: string | null
+          manager_id: string | null
+          name: string
+          progress: number | null
+          start_date: string
+          status: Database["public"]["Enums"]["project_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          budget?: number | null
+          capacity_kw?: number | null
+          client: string
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          manager_id?: string | null
+          name: string
+          progress?: number | null
+          start_date: string
+          status?: Database["public"]["Enums"]["project_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          budget?: number | null
+          capacity_kw?: number | null
+          client?: string
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          manager_id?: string | null
+          name?: string
+          progress?: number | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["project_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          value?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json | null
+        }
+        Relationships: []
+      }
+      task_dependencies: {
+        Row: {
+          created_at: string | null
+          depends_on_id: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          depends_on_id: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string | null
+          depends_on_id?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_depends_on_id_fkey"
+            columns: ["depends_on_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_statuses: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          department: string | null
+          duration: number | null
+          id: string
+          is_enterprise: boolean | null
+          name: string
+          parent_id: string | null
+          phase: string | null
+          priority: Database["public"]["Enums"]["task_priority"] | null
+          progress: number | null
+          project_id: string | null
+          start_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          department?: string | null
+          duration?: number | null
+          id?: string
+          is_enterprise?: boolean | null
+          name: string
+          parent_id?: string | null
+          phase?: string | null
+          priority?: Database["public"]["Enums"]["task_priority"] | null
+          progress?: number | null
+          project_id?: string | null
+          start_date: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          department?: string | null
+          duration?: number | null
+          id?: string
+          is_enterprise?: boolean | null
+          name?: string
+          parent_id?: string | null
+          phase?: string | null
+          priority?: Database["public"]["Enums"]["task_priority"] | null
+          progress?: number | null
+          project_id?: string | null
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +339,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "project_manager" | "engineer" | "viewer"
+      project_status:
+        | "Planificación"
+        | "En Progreso"
+        | "Completado"
+        | "Detenido"
+        | "Cancelado"
+      task_priority: "Crítica" | "Alta" | "Media" | "Baja"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +473,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "project_manager", "engineer", "viewer"],
+      project_status: [
+        "Planificación",
+        "En Progreso",
+        "Completado",
+        "Detenido",
+        "Cancelado",
+      ],
+      task_priority: ["Crítica", "Alta", "Media", "Baja"],
+    },
   },
 } as const
