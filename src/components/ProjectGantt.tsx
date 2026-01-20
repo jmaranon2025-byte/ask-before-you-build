@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, GanttChartSquare, Users } from 'lucide-react';
+import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, GanttChartSquare, Users, Link2, Unlink } from 'lucide-react';
 import { Task, Project, Priority, User } from '@/types';
 
 interface ProjectGanttProps {
@@ -481,6 +481,86 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
                     {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
+              </div>
+
+              {/* Dependencies Section */}
+              <div className="border-t border-slate-200 pt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <Link2 className="w-4 h-4" />
+                  Dependencias
+                </label>
+                
+                {/* Current Dependencies */}
+                {taskForm.dependencies && taskForm.dependencies.length > 0 && (
+                  <div className="mb-3 space-y-2">
+                    {taskForm.dependencies.map(depId => {
+                      const depTask = projectTasks.find(t => t.id === depId);
+                      return depTask ? (
+                        <div key={depId} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-700 truncate">{depTask.name}</p>
+                            <p className="text-xs text-slate-500">{depTask.phase}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTaskForm({
+                              ...taskForm,
+                              dependencies: taskForm.dependencies?.filter(id => id !== depId) || []
+                            })}
+                            className="ml-2 p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Quitar dependencia"
+                          >
+                            <Unlink className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+
+                {/* Add New Dependency */}
+                {(() => {
+                  const availableTasks = projectTasks.filter(t => 
+                    t.id !== editingTask?.id && 
+                    !taskForm.dependencies?.includes(t.id)
+                  );
+                  
+                  if (availableTasks.length === 0) {
+                    return (
+                      <p className="text-xs text-slate-400 italic">
+                        {projectTasks.length <= 1 
+                          ? 'No hay otras tareas disponibles para crear dependencias.'
+                          : 'Todas las tareas ya están vinculadas como dependencias.'}
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <select
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                      value=""
+                      onChange={e => {
+                        if (e.target.value) {
+                          setTaskForm({
+                            ...taskForm,
+                            dependencies: [...(taskForm.dependencies || []), e.target.value]
+                          });
+                        }
+                      }}
+                    >
+                      <option value="">+ Agregar dependencia...</option>
+                      {availableTasks.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.phase})
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+
+                <p className="text-xs text-slate-500 mt-2">
+                  Las dependencias indican qué tareas deben completarse antes de iniciar esta.
+                </p>
               </div>
 
               <div className="pt-4 flex justify-end space-x-3">
