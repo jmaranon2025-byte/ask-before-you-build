@@ -2,7 +2,8 @@ export enum ProjectStatus {
   PLANIFICACION = 'Planificación',
   EN_PROGRESO = 'En Progreso',
   DETENIDO = 'Detenido',
-  COMPLETADO = 'Completado'
+  COMPLETADO = 'Completado',
+  CANCELADO = 'Cancelado'
 }
 
 export enum ProjectPhase {
