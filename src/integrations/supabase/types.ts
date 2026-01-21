@@ -153,6 +153,59 @@ export type Database = {
           },
         ]
       }
+      specialties: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      specialty_roles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          specialty_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          specialty_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          specialty_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialty_roles_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_config: {
         Row: {
           created_at: string | null
@@ -241,6 +294,7 @@ export type Database = {
           department: string | null
           duration: number | null
           id: string
+          is_critical: boolean | null
           is_enterprise: boolean | null
           name: string
           parent_id: string | null
@@ -248,9 +302,14 @@ export type Database = {
           priority: Database["public"]["Enums"]["task_priority"] | null
           progress: number | null
           project_id: string | null
+          required_role_id: string | null
+          required_specialty_id: string | null
+          scheduled_end: string | null
+          scheduled_start: string | null
           start_date: string
           status: string | null
           updated_at: string | null
+          workload_hours: number | null
         }
         Insert: {
           assigned_to?: string | null
@@ -258,6 +317,7 @@ export type Database = {
           department?: string | null
           duration?: number | null
           id?: string
+          is_critical?: boolean | null
           is_enterprise?: boolean | null
           name: string
           parent_id?: string | null
@@ -265,9 +325,14 @@ export type Database = {
           priority?: Database["public"]["Enums"]["task_priority"] | null
           progress?: number | null
           project_id?: string | null
+          required_role_id?: string | null
+          required_specialty_id?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
           start_date: string
           status?: string | null
           updated_at?: string | null
+          workload_hours?: number | null
         }
         Update: {
           assigned_to?: string | null
@@ -275,6 +340,7 @@ export type Database = {
           department?: string | null
           duration?: number | null
           id?: string
+          is_critical?: boolean | null
           is_enterprise?: boolean | null
           name?: string
           parent_id?: string | null
@@ -282,9 +348,14 @@ export type Database = {
           priority?: Database["public"]["Enums"]["task_priority"] | null
           progress?: number | null
           project_id?: string | null
+          required_role_id?: string | null
+          required_specialty_id?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
           start_date?: string
           status?: string | null
           updated_at?: string | null
+          workload_hours?: number | null
         }
         Relationships: [
           {
@@ -306,6 +377,20 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_required_role_id_fkey"
+            columns: ["required_role_id"]
+            isOneToOne: false
+            referencedRelation: "specialty_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_required_specialty_id_fkey"
+            columns: ["required_specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
             referencedColumns: ["id"]
           },
         ]
@@ -330,6 +415,97 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_specialties: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          role_id: string | null
+          specialty_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          role_id?: string | null
+          specialty_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          role_id?: string | null
+          specialty_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_specialties_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "specialty_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_specialties_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_specialties_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workload_assignments: {
+        Row: {
+          assigned_date: string
+          created_at: string | null
+          hours_assigned: number
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_date: string
+          created_at?: string | null
+          hours_assigned?: number
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_date?: string
+          created_at?: string | null
+          hours_assigned?: number
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workload_assignments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workload_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
