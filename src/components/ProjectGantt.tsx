@@ -175,94 +175,231 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
       return 'bg-slate-100 text-slate-600 border-slate-200';
   };
 
-  const renderListView = () => (
-    <div className="overflow-auto flex-1 pb-32">
-      {Object.keys(tasksByPhase).length > 0 ? (
-        <div className="divide-y divide-slate-200">
-          {Object.entries(tasksByPhase).map(([phase, phaseTasks], phaseIndex) => (
-            <div key={phase}>
-              {/* Phase Header */}
-              <div className="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm uppercase tracking-wide sticky top-0 z-10 border-b border-slate-200">
-                {phaseIndex + 1}. {phase}
-              </div>
-              {/* Phase Tasks */}
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-semibold">
-                  <tr>
-                    <th className="p-4 border-b border-slate-200 w-1/3">Tarea</th>
-                    <th className="p-4 border-b border-slate-200">Prioridad</th>
-                    <th className="p-4 border-b border-slate-200">Responsable</th>
-                    <th className="p-4 border-b border-slate-200">Cronograma</th>
-                    <th className="p-4 border-b border-slate-200 text-center">Estado</th>
-                    <th className="p-4 border-b border-slate-200 text-right w-16"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {phaseTasks.map((task) => (
-                    <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="p-4">
-                        <div className="font-medium text-slate-700">{task.name}</div>
-                        {task.dependencies && task.dependencies.length > 0 && (
-                          <div className="text-xs text-slate-400 mt-0.5">Dep: {task.dependencies.length}</div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
-                          task.priority === Priority.CRITICA ? 'bg-red-50 text-red-700 border-red-100' :
-                          task.priority === Priority.ALTA ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                          task.priority === Priority.MEDIA ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                          'bg-slate-50 text-slate-600 border-slate-200'
-                        }`}>{task.priority}</span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <UserCircle className="w-5 h-5 text-slate-300" />
-                          <span className="text-slate-700 text-xs">{getAssigneeName(task.assignedTo)}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="w-full max-w-xs">
-                          <div className="flex justify-between text-xs text-slate-500 mb-1">
-                            <span>{task.startDate}</span>
-                            <span>{task.duration}d</span>
-                          </div>
-                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${task.status === 'Completado' ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${task.progress}%` }}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getStatusColorClass(task.status)}`}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right relative">
-                        <button onClick={(e) => handleMenuClick(e, task.id)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {activeMenuId === task.id && (
-                          <div className="absolute right-8 top-8 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 py-1 text-left">
-                            <button onClick={() => openEditTaskModal(task)} className="w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center">
-                              <Edit className="w-3.5 h-3.5 mr-2 text-blue-500" /> Editar
-                            </button>
-                            <button onClick={(e) => handleDeleteClick(e, task)} className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
-                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
-                            </button>
-                          </div>
-                        )}
-                      </td>
+  // Build a flat list of all tasks with their row indices for dependency arrows
+  const flatTaskList = useMemo(() => {
+    const list: { task: Task; index: number }[] = [];
+    let idx = 0;
+    phases.forEach(phase => {
+      const phaseTasks = projectTasks.filter(t => t.phase === phase);
+      phaseTasks.forEach(task => {
+        list.push({ task, index: idx });
+        idx++;
+      });
+    });
+    return list;
+  }, [projectTasks, phases]);
+
+  const getTaskRowIndex = (taskId: string) => {
+    const found = flatTaskList.find(item => item.task.id === taskId);
+    return found ? found.index : -1;
+  };
+
+  const renderListView = () => {
+    // Calculate dependency lines
+    const dependencyLines: { fromIdx: number; toIdx: number; fromTaskId: string; toTaskId: string }[] = [];
+    flatTaskList.forEach(({ task, index }) => {
+      if (task.dependencies && task.dependencies.length > 0) {
+        task.dependencies.forEach(depId => {
+          const depIdx = getTaskRowIndex(depId);
+          if (depIdx !== -1) {
+            dependencyLines.push({ fromIdx: depIdx, toIdx: index, fromTaskId: depId, toTaskId: task.id });
+          }
+        });
+      }
+    });
+
+    const ROW_HEIGHT = 52; // Approximate row height in pixels
+    const HEADER_HEIGHT = 36; // Phase header height
+    
+    // Calculate cumulative phase headers for offset
+    const getRowOffset = (taskIndex: number) => {
+      let phaseCount = 0;
+      let taskCount = 0;
+      for (const phase of phases) {
+        const phaseTasks = projectTasks.filter(t => t.phase === phase);
+        if (phaseTasks.length === 0) continue;
+        if (taskCount + phaseTasks.length > taskIndex) {
+          // Task is in this phase
+          return (phaseCount * HEADER_HEIGHT) + (HEADER_HEIGHT) + (taskIndex * ROW_HEIGHT) + (ROW_HEIGHT / 2) + 36; // +36 for table header
+        }
+        taskCount += phaseTasks.length;
+        phaseCount++;
+      }
+      return 0;
+    };
+
+    return (
+      <div className="overflow-auto flex-1 pb-32 relative">
+        {/* SVG Dependency Lines */}
+        {dependencyLines.length > 0 && (
+          <svg 
+            className="absolute left-0 top-0 pointer-events-none z-20"
+            style={{ width: '40px', height: `${flatTaskList.length * ROW_HEIGHT + phases.filter(p => projectTasks.some(t => t.phase === p)).length * HEADER_HEIGHT + 100}px` }}
+          >
+            <defs>
+              <marker
+                id="arrowhead"
+                markerWidth="8"
+                markerHeight="6"
+                refX="8"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L8,3 z" fill="#6366f1" />
+              </marker>
+            </defs>
+            {dependencyLines.map((line, idx) => {
+              const fromY = getRowOffset(line.fromIdx);
+              const toY = getRowOffset(line.toIdx);
+              const isGoingDown = toY > fromY;
+              
+              return (
+                <g key={idx}>
+                  {/* Curved path from dependency to dependent task */}
+                  <path
+                    d={`M 36 ${fromY} 
+                        C 18 ${fromY}, 18 ${toY}, 36 ${toY}`}
+                    fill="none"
+                    stroke="#6366f1"
+                    strokeWidth="2"
+                    strokeDasharray="4,2"
+                    markerEnd="url(#arrowhead)"
+                    opacity="0.7"
+                  />
+                  {/* Source dot */}
+                  <circle cx="36" cy={fromY} r="4" fill="#6366f1" />
+                </g>
+              );
+            })}
+          </svg>
+        )}
+
+        {Object.keys(tasksByPhase).length > 0 ? (
+          <div className={`divide-y divide-slate-200 ${dependencyLines.length > 0 ? 'ml-10' : ''}`}>
+            {Object.entries(tasksByPhase).map(([phase, phaseTasks], phaseIndex) => (
+              <div key={phase}>
+                {/* Phase Header */}
+                <div className="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm uppercase tracking-wide sticky top-0 z-10 border-b border-slate-200">
+                  {phaseIndex + 1}. {phase}
+                </div>
+                {/* Phase Tasks */}
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-semibold">
+                    <tr>
+                      <th className="p-4 border-b border-slate-200 w-1/3">Tarea</th>
+                      <th className="p-4 border-b border-slate-200">Prioridad</th>
+                      <th className="p-4 border-b border-slate-200">Responsable</th>
+                      <th className="p-4 border-b border-slate-200">Cronograma</th>
+                      <th className="p-4 border-b border-slate-200 text-center">Estado</th>
+                      <th className="p-4 border-b border-slate-200 text-right w-16"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="p-8 text-center text-slate-400">Sin tareas registradas.</div>
-      )}
-    </div>
-  );
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {phaseTasks.map((task) => {
+                      const hasDependencies = task.dependencies && task.dependencies.length > 0;
+                      const isDependedOn = projectTasks.some(t => t.dependencies?.includes(task.id));
+                      
+                      return (
+                        <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              {/* Dependency indicator badges */}
+                              {(hasDependencies || isDependedOn) && (
+                                <div className="flex items-center gap-1">
+                                  {hasDependencies && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-medium border border-indigo-100" title={`Depende de ${task.dependencies!.length} tarea(s)`}>
+                                      <Link2 className="w-3 h-3" />
+                                      {task.dependencies!.length}
+                                    </span>
+                                  )}
+                                  {isDependedOn && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px] font-medium border border-amber-100" title="Otras tareas dependen de esta">
+                                      ⬆
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-medium text-slate-700">{task.name}</div>
+                                {hasDependencies && (
+                                  <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                                    <span>Requiere:</span>
+                                    {task.dependencies!.slice(0, 2).map((depId, i) => {
+                                      const depTask = projectTasks.find(t => t.id === depId);
+                                      return depTask ? (
+                                        <span key={depId} className="text-indigo-500">
+                                          {depTask.name.substring(0, 15)}{depTask.name.length > 15 ? '...' : ''}{i < Math.min(task.dependencies!.length - 1, 1) ? ', ' : ''}
+                                        </span>
+                                      ) : null;
+                                    })}
+                                    {task.dependencies!.length > 2 && (
+                                      <span className="text-slate-400">+{task.dependencies!.length - 2} más</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
+                              task.priority === Priority.CRITICA ? 'bg-red-50 text-red-700 border-red-100' :
+                              task.priority === Priority.ALTA ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                              task.priority === Priority.MEDIA ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                              'bg-slate-50 text-slate-600 border-slate-200'
+                            }`}>{task.priority}</span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-2">
+                              <UserCircle className="w-5 h-5 text-slate-300" />
+                              <span className="text-slate-700 text-xs">{getAssigneeName(task.assignedTo)}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="w-full max-w-xs">
+                              <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                <span>{task.startDate}</span>
+                                <span>{task.duration}d</span>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${task.status === 'Completado' ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${task.progress}%` }}></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getStatusColorClass(task.status)}`}>
+                              {task.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right relative">
+                            <button onClick={(e) => handleMenuClick(e, task.id)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            {activeMenuId === task.id && (
+                              <div className="absolute right-8 top-8 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 py-1 text-left">
+                                <button onClick={() => openEditTaskModal(task)} className="w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center">
+                                  <Edit className="w-3.5 h-3.5 mr-2 text-blue-500" /> Editar
+                                </button>
+                                <button onClick={(e) => handleDeleteClick(e, task)} className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
+                                  <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center text-slate-400">Sin tareas registradas.</div>
+        )}
+      </div>
+    );
+  };
 
   const renderBoardView = () => (
     <div className="flex-1 overflow-x-auto p-4 flex space-x-4 bg-slate-100/50 h-full">
