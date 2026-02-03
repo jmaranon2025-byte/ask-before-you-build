@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, GanttChartSquare, Users, Link2, Unlink } from 'lucide-react';
 import { Task, Project, Priority, User } from '@/types';
+import GanttView from '@/components/project/GanttView';
+import TeamView from '@/components/project/TeamView';
 
 interface ProjectGanttProps {
   projects: Project[];
@@ -543,22 +545,19 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
             {viewMode === 'board' && renderBoardView()}
             {viewMode === 'calendar' && renderCalendarView()}
             {viewMode === 'gantt' && (
-              <div className="flex-1 flex items-center justify-center text-slate-400 p-8">
-                <div className="text-center">
-                  <GanttChartSquare className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                  <p className="font-medium text-slate-600">Vista Gantt</p>
-                  <p className="text-sm">Próximamente - Visualización de cronograma interactivo</p>
-                </div>
-              </div>
+              <GanttView
+                tasks={projectTasks}
+                users={users}
+                phases={phases}
+                onEditTask={openEditTaskModal}
+              />
             )}
             {viewMode === 'team' && (
-              <div className="flex-1 flex items-center justify-center text-slate-400 p-8">
-                <div className="text-center">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                  <p className="font-medium text-slate-600">Vista Equipo</p>
-                  <p className="text-sm">Próximamente - Distribución de tareas por miembro</p>
-                </div>
-              </div>
+              <TeamView
+                tasks={projectTasks}
+                users={users}
+                onEditTask={openEditTaskModal}
+              />
             )}
           </>
         )}
