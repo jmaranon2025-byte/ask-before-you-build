@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, GanttChartSquare, Users, Link2, Unlink } from 'lucide-react';
+import { Download, Plus, UserCircle, X, List, LayoutGrid, Trash2, Edit, MoreVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, GanttChartSquare, Users, Link2, Unlink, ChevronDown, ChevronUp, GitBranchPlus } from 'lucide-react';
 import { Task, Project, Priority, User } from '@/types';
 import GanttView from '@/components/project/GanttView';
 import TeamView from '@/components/project/TeamView';
@@ -39,8 +39,11 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
     progress: 0,
     status: 'Pendiente',
     assignedTo: '',
-    dependencies: []
+    dependencies: [],
+    parentId: undefined
   });
+  
+  const [parentTaskForNew, setParentTaskForNew] = useState<string | null>(null);
 
   useEffect(() => {
     const projectExists = projects.find(p => p.id === selectedProjectId);
@@ -60,38 +63,110 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
   const currentProject = projects.find(p => p.id === selectedProjectId);
   const projectTasks = tasks.filter(t => t.projectId === selectedProjectId);
 
-  // Group tasks by phase
+  // State for expanded/collapsed parent tasks
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  const toggleTaskExpand = (taskId: string) => {
+    setExpandedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  // Build hierarchical task structure
+  const buildHierarchicalTasks = (tasksToProcess: Task[]): Task[] => {
+    const taskMap = new Map<string, Task>();
+    tasksToProcess.forEach(t => taskMap.set(t.id, t));
+    
+    // Get root tasks (no parent or parent not in current project)
+    const rootTasks = tasksToProcess.filter(t => !t.parentId || !taskMap.has(t.parentId));
+    
+    // Function to get children of a task
+    const getChildren = (parentId: string): Task[] => {
+      return tasksToProcess.filter(t => t.parentId === parentId);
+    };
+    
+    // Build flat list with hierarchy info
+    const buildFlatList = (tasks: Task[], level: number = 0): Task[] => {
+      const result: Task[] = [];
+      tasks.forEach(task => {
+        result.push({ ...task, level });
+        const children = getChildren(task.id);
+        if (children.length > 0 && expandedTasks.has(task.id)) {
+          result.push(...buildFlatList(children, level + 1));
+        }
+      });
+      return result;
+    };
+    
+    return buildFlatList(rootTasks);
+  };
+
+  // Get children count for a task
+  const getChildrenCount = (taskId: string): number => {
+    return projectTasks.filter(t => t.parentId === taskId).length;
+  };
+
+  // Get all descendants recursively
+  const getAllDescendants = (taskId: string): string[] => {
+    const children = projectTasks.filter(t => t.parentId === taskId);
+    let descendants: string[] = children.map(c => c.id);
+    children.forEach(child => {
+      descendants = [...descendants, ...getAllDescendants(child.id)];
+    });
+    return descendants;
+  };
+
+  // Group tasks by phase with hierarchy
   const tasksByPhase = useMemo(() => {
     const grouped: Record<string, Task[]> = {};
     phases.forEach(phase => {
       const phaseTasks = projectTasks.filter(t => t.phase === phase);
       if (phaseTasks.length > 0) {
-        grouped[phase] = phaseTasks;
+        grouped[phase] = buildHierarchicalTasks(phaseTasks);
       }
     });
     return grouped;
-  }, [projectTasks, phases]);
+  }, [projectTasks, phases, expandedTasks]);
 
   const getAssigneeName = (userId: string) => users.find(u => u.id === userId)?.name || 'Sin asignar';
 
-  const openNewTaskModal = () => {
+  const openNewTaskModal = (parentId?: string) => {
     setEditingTask(null);
+    setParentTaskForNew(parentId || null);
+    
+    // Auto-expand parent task when creating a subtask
+    if (parentId) {
+      setExpandedTasks(prev => {
+        const next = new Set(prev);
+        next.add(parentId);
+        return next;
+      });
+    }
+    
     setTaskForm({
       name: '',
-      phase: phases[0] as any,
+      phase: parentId ? (projectTasks.find(t => t.id === parentId)?.phase || phases[0]) as any : phases[0] as any,
       startDate: new Date().toISOString().split('T')[0],
       duration: 1,
       priority: Priority.MEDIA,
       progress: 0,
       status: taskStatuses[0] as any,
       assignedTo: users[0]?.id || '',
-      dependencies: []
+      dependencies: [],
+      parentId: parentId || undefined
     });
     setIsTaskModalOpen(true);
   };
 
   const openEditTaskModal = (task: Task) => {
     setEditingTask(task);
+    setParentTaskForNew(null);
     setTaskForm({ ...task });
     setIsTaskModalOpen(true);
   };
@@ -131,7 +206,8 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
             status: taskForm.status as any,
             priority: taskForm.priority || editingTask.priority,
             assignedTo: taskForm.assignedTo || editingTask.assignedTo,
-            dependencies: taskForm.dependencies || []
+            dependencies: taskForm.dependencies || [],
+            parentId: taskForm.parentId
         };
         onUpdateTask(updated);
     } else {
@@ -147,10 +223,12 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
             status: taskForm.status as any || 'Pendiente',
             dependencies: taskForm.dependencies || [],
             priority: taskForm.priority || Priority.MEDIA,
+            parentId: parentTaskForNew || undefined
         };
         onAddTask(newTask);
     }
     setIsTaskModalOpen(false);
+    setParentTaskForNew(null);
   };
 
   const downloadExcel = () => {
@@ -301,11 +379,35 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
                     {phaseTasks.map((task) => {
                       const hasDependencies = task.dependencies && task.dependencies.length > 0;
                       const isDependedOn = projectTasks.some(t => t.dependencies?.includes(task.id));
+                      const childrenCount = getChildrenCount(task.id);
+                      const hasChildren = childrenCount > 0;
+                      const isExpanded = expandedTasks.has(task.id);
+                      const taskLevel = task.level || 0;
                       
                       return (
                         <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
                           <td className="p-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" style={{ paddingLeft: `${taskLevel * 24}px` }}>
+                              {/* Expand/Collapse button for parent tasks */}
+                              {hasChildren ? (
+                                <button 
+                                  onClick={() => toggleTaskExpand(task.id)}
+                                  className="p-0.5 hover:bg-slate-200 rounded transition-colors"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                                  ) : (
+                                    <ChevronUp className="w-4 h-4 text-slate-500 rotate-180" />
+                                  )}
+                                </button>
+                              ) : taskLevel > 0 ? (
+                                <span className="w-5 h-5 flex items-center justify-center text-slate-300">
+                                  └
+                                </span>
+                              ) : (
+                                <span className="w-5" />
+                              )}
+                              
                               {/* Dependency indicator badges */}
                               {(hasDependencies || isDependedOn) && (
                                 <div className="flex items-center gap-1">
@@ -322,8 +424,21 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
                                   )}
                                 </div>
                               )}
-                              <div>
-                                <div className="font-medium text-slate-700">{task.name}</div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-slate-700">{task.name}</span>
+                                  {hasChildren && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded border border-purple-100">
+                                      {childrenCount} subtarea{childrenCount > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                  {taskLevel > 0 && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">
+                                      Nivel {taskLevel}
+                                    </span>
+                                  )}
+                                </div>
                                 {hasDependencies && (
                                   <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                                     <span>Requiere:</span>
@@ -378,9 +493,18 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
                               <MoreVertical className="w-4 h-4" />
                             </button>
                             {activeMenuId === task.id && (
-                              <div className="absolute right-8 top-8 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 py-1 text-left">
+                              <div className="absolute right-8 top-8 w-48 bg-white rounded-lg shadow-xl border border-slate-100 z-50 py-1 text-left">
                                 <button onClick={() => openEditTaskModal(task)} className="w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center">
                                   <Edit className="w-3.5 h-3.5 mr-2 text-blue-500" /> Editar
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    openNewTaskModal(task.id);
+                                  }} 
+                                  className="w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center"
+                                >
+                                  <GitBranchPlus className="w-3.5 h-3.5 mr-2 text-purple-500" /> Crear Subtarea
                                 </button>
                                 <button onClick={(e) => handleDeleteClick(e, task)} className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
                                   <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
@@ -500,7 +624,7 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
             <Download className="w-4 h-4" />
             <span>Excel</span>
           </button>
-          <button onClick={openNewTaskModal} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors">
+          <button onClick={() => openNewTaskModal()} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors">
             <Plus className="w-5 h-5" />
             <span>Nueva Tarea</span>
           </button>
@@ -572,11 +696,54 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({
               <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
             
-            <form onSubmit={handleTaskSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleTaskSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Parent task indicator */}
+              {(parentTaskForNew || taskForm.parentId) && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-purple-700">
+                    <GitBranchPlus className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      Subtarea de: {projectTasks.find(t => t.id === (parentTaskForNew || taskForm.parentId))?.name || 'Tarea padre'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
                 <input type="text" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" value={taskForm.name} onChange={e => setTaskForm({...taskForm, name: e.target.value})} />
               </div>
+
+              {/* Parent Task Selector (only show when editing or creating non-subtask) */}
+              {!parentTaskForNew && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                    <GitBranchPlus className="w-4 h-4" />
+                    Tarea Padre (opcional)
+                  </label>
+                  <select 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg" 
+                    value={taskForm.parentId || ''} 
+                    onChange={e => setTaskForm({...taskForm, parentId: e.target.value || undefined})}
+                  >
+                    <option value="">Sin tarea padre (tarea raíz)</option>
+                    {projectTasks
+                      .filter(t => t.id !== editingTask?.id && !getAllDescendants(editingTask?.id || '').includes(t.id))
+                      .map(t => {
+                        const level = t.level || 0;
+                        const prefix = '  '.repeat(level) + (level > 0 ? '└ ' : '');
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {prefix}{t.name}
+                          </option>
+                        );
+                      })}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Selecciona una tarea padre para crear una jerarquía (padre-hijo-nieto)
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
